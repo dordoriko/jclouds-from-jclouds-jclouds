@@ -22,11 +22,13 @@ import static com.google.common.net.HttpHeaders.CONTENT_LENGTH;
 import static com.google.common.net.HttpHeaders.HOST;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static org.jclouds.Constants.PROPERTY_IDEMPOTENT_METHODS;
+import static org.jclouds.Constants.PROPERTY_OUTPUT_STREAM_BUFFER_SIZE;
 import static org.jclouds.Constants.PROPERTY_USER_AGENT;
 import static org.jclouds.http.HttpUtils.filterOutContentHeaders;
 import static org.jclouds.io.Payloads.newInputStreamPayload;
 import static org.jclouds.util.Closeables2.closeQuietly;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -69,6 +71,7 @@ public class JavaUrlHttpCommandExecutorService extends BaseHttpCommandExecutorSe
    protected final HostnameVerifier verifier;
    @Inject(optional = true)
    protected Supplier<SSLContext> sslContextSupplier;
+   protected final int outputStreamBufferSize;
    protected final String userAgent;
 
    @Inject
@@ -77,6 +80,7 @@ public class JavaUrlHttpCommandExecutorService extends BaseHttpCommandExecutorSe
          DelegatingErrorHandler errorHandler, HttpWire wire, @Named("untrusted") HostnameVerifier verifier,
          @Named("untrusted") Supplier<SSLContext> untrustedSSLContextProvider, Function<URI, Proxy> proxyForURI,
          @Named(PROPERTY_IDEMPOTENT_METHODS) String idempotentMethods,
+         @Named(PROPERTY_OUTPUT_STREAM_BUFFER_SIZE) int outputStreamBufferSize,
          @Named(PROPERTY_USER_AGENT) String userAgent) {
       super(utils, contentMetadataCodec, retryHandler, ioRetryHandler, errorHandler, wire, idempotentMethods);
       if (utils.getMaxConnections() > 0) {
@@ -86,6 +90,7 @@ public class JavaUrlHttpCommandExecutorService extends BaseHttpCommandExecutorSe
       this.verifier = checkNotNull(verifier, "verifier");
       this.proxyForURI = checkNotNull(proxyForURI, "proxyForURI");
       this.userAgent = userAgent;
+      this.outputStreamBufferSize = outputStreamBufferSize;
    }
 
    @Override
@@ -293,9 +298,11 @@ public class JavaUrlHttpCommandExecutorService extends BaseHttpCommandExecutorSe
    void writePayloadToConnection(Payload payload, Object lengthDesc, HttpURLConnection connection) throws IOException {
       connection.setDoOutput(true);
       CountingOutputStream out = new CountingOutputStream(connection.getOutputStream());
+      BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(out, outputStreamBufferSize);
       InputStream is = payload.openStream();
       try {
-         ByteStreams.copy(is, out);
+         ByteStreams.copy(is, bufferedOutputStream);
+         bufferedOutputStream.flush();
       } catch (IOException e) {
          logger.error(e, "error after writing %d/%s bytes to %s", out.getCount(), lengthDesc, connection.getURL());
          throw e;

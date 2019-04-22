@@ -325,7 +325,14 @@ public final class Constants {
     * </code>
     */
    public static final String PROPERTY_TIMEOUTS_PREFIX = "jclouds.timeouts.";
-   
+
+   /**
+    * Integer property. Default (32768).
+    * <p/>
+    * Buffer size for socket OutputStream write.
+    */
+   public static final String PROPERTY_OUTPUT_STREAM_BUFFER_SIZE = "jclouds.outputstream.buffer-size";
+
    /**
     * Boolean property. Default (true).
     * <p/>
